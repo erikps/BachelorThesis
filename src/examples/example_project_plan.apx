@@ -1,0 +1,8 @@
+arg(a).
+arg(b).
+arg(c).
+att(a,b).
+att(c,a).
+wgt(a, 0.3).
+wgt(b, 0.7).
+wgt(c, 1.0).

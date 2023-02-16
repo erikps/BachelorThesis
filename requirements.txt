@@ -1,0 +1,7 @@
+matplotlib
+networkx
+pyvis
+torch
+torchvision
+torchaudio
+torch_geometric
