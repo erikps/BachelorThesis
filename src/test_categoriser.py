@@ -1,12 +1,12 @@
 
-from core import WeightedArgumentationFramework
+from core import WeightedArgumentationFramework, AttackInferenceProblem
 from categoriser import HCategoriser
 import math
 
 
 if __name__ == '__main__':
     framework = WeightedArgumentationFramework.from_file(
-        "examples/example.apx").randomise_weights()
+        "./examples/example.apx").randomise_weights()
 
     categoriser = HCategoriser()
     categoriser(framework)
@@ -21,3 +21,7 @@ if __name__ == '__main__':
     check('b', 0.7)
     check('c', 0.437)
     check('d', 0.6)
+
+
+
+   

@@ -24,7 +24,9 @@ def load_problems(dataset_path: str, categoriser=HCategoriser(), seed=None) -> G
 
 if __name__ == "__main__":
     problems = load_problems("../data/graphs/")
-    for node, data in next(problems).framework.graph.nodes(data=True):
+    problem = next(problems)
+    for node, data in problem.framework.graph.nodes(data=True):
         print(data)
 
-        
+    for edge in problem.framework.graph.edges(data=True):
+        print(edge)

@@ -35,12 +35,12 @@ class HCategoriser(Categoriser):
                 # first, accumulate all of the node's attacker's weights
                 attackers = list(framework.graph.predecessors(node))
 
-                sum_of_attack_weights = sum(
+                sum_of_attack_degrees = sum(
                     [nodes[attacker]["acceptibility_degree"] for attacker in attackers])
 
                 # this is the h-categoriser formula yielding the new acceptibility degree
                 current_acceptibility_degree = data["weight"] / \
-                    (sum_of_attack_weights + 1)
+                    (sum_of_attack_degrees + 1)
 
                 # add the new acceptibility degree as a seperate attribute so that
                 # the nodes after the current one arent influenced by the new value

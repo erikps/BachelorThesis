@@ -2,23 +2,36 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import math
 import random
 import re
 from typing import List, Dict
 
 import networkx
+import torch
 
 
 class AttackInferenceProblem:
     def __init__(self, framework: WeightedArgumentationFramework, categoriser: Categoriser):
         self.framework = framework.randomise_weights()
-        self.categoriser = categoriser 
+        self.categoriser = categoriser
 
         # Geneate desired acceptibility degrees.
         self.categoriser(framework)
 
-        # Remove weights
-        networkx.set_node_attributes(self.framework.graph, None, 'weight')
+        nodes = self.framework.graph.nodes()
+
+        # Make the graph fully connected and add a flag for the actual and
+        #   predicted existance of the edge
+        for a in nodes:
+            for b in nodes:
+                is_actual_edge = self.framework.graph.has_edge(
+                    a, b)  # does the edge actually exist?
+                self.framework.graph.add_edge(
+                    a, b, actual_edge=is_actual_edge, predicted_edge=False)
+
+        networkx.set_node_attributes(
+            self.framework.graph, 0, 'predicted_degree')
 
 
 class WeightedArgumentationFramework:
