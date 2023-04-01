@@ -7,3 +7,6 @@ torchaudio
 torch_geometric
 gymnasium
 tqdm
+click
+keyboard
+flask
