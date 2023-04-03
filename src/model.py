@@ -45,29 +45,58 @@ class NeuralNetwork(torch.nn.Module):
 
 
 class GraphNeuralNetwork(MessagePassing):
+    """A message passing model based on the EGNN model from Craandijk and Bex (https://doi.org/10.1609/aaai.v36i5.20497)"""
+
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         number_edge_features: int,
         number_message_layers: int = 1,
-        message_layer_size = 100
+        message_layer_size=100,
     ):
-
         super().__init__(aggr="add")
-        message_input_size = number_edge_features + out_channels * 2
-        self._message_network = NeuralNetwork(message_input_size, out_channels, number_message_layers, message_layer_size)
 
-    def message(self, node_embeddings_i: Tensor, node_embeddings_j: Tensor, edge_features: Tensor):
-        """ Create the message for a given node/node. """
-        message = self._message_network(torch.cat((node_embeddings_i, node_embeddings_j, edge_features)))
-        return message
+        message_input_size = (
+            number_edge_features + out_channels * 2
+        )  # Size of the raw inputs to the message encoding network
+
+        print("MESSAGE INPUT SIZE", message_input_size)
+
+        # The initial layer performs an initial transformation on the node features before any message passing takes place
+        self._initial_linear = torch.nn.Linear(in_channels, out_channels)
+
+        # The purpose of the message network is to learn how to encode messages given both node embeddings and the edge features of the relevant edge
+        self._message_network = NeuralNetwork(
+            message_input_size, out_channels, number_message_layers, message_layer_size
+        )
+
+    def message(
+        self, x_i: torch.Tensor, x_j: torch.Tensor, edge_features: torch.Tensor
+    ):
+        """Create the message for a given node/node.
+            x_i:            the node that is going to receive the message
+            x_j:            the node neighbounring x_i, sending out the message
+            edge_features:  the feature of the attack from x_j to x_i
+
+        note: x_i and x_j are passed "magically" from the call to self.propagate
+              in the self.forward method, specifically from the x parameter
+        """
+
+        # Consolidate node embeddings and the edge feature into one tensor
+        message_input = torch.cat((x_i, x_j, edge_features), dim=1)
+
+        # Use the message encoding network to generate the message
+        return self._message_network(message_input)
 
     def forward(self, x, edge_features, edge_index):
-        """ Start propagation """
+        """Main method called to start propagation. Returns the final node embeddings."""
 
+        # apply initial linear transformation of node features
+        x = self._initial_linear(x)
 
-    
+        out = self.propagate(x=x, edge_index=edge_index, edge_features=edge_features)
+        return out
 
 
 class ReadoutModel(torch.nn.Module):
@@ -84,11 +113,16 @@ class ReadoutModel(torch.nn.Module):
         number_of_edge_features = 2  # predicted_edge, has_flipped
 
         # Set up the GCN layers
-        self.conv1 = GCNConv(number_of_node_features, channel_count)
-        self.conv2 = GCNConv(channel_count, channel_count)
+        # self.conv1 = GCNConv(number_of_node_features, channel_count)
+        # self.conv2 = GCNConv(channel_count, channel_count)
 
-        # self.conv1 = AGNNConv()
-        # self.conv2 = AGNNConv()
+        # The GNN layers perform message passing to create node embeddings for each node
+        self.gnn_layer1 = GraphNeuralNetwork(
+            number_of_node_features, channel_count, number_of_edge_features
+        )
+        self.gnn_layer2 = GraphNeuralNetwork(
+            channel_count, channel_count, number_of_edge_features
+        )
 
         # The readout network takes a (attacker, attacked) pair and returns a q-value for it
         self.readout_network = NeuralNetwork(
@@ -119,14 +153,15 @@ class ReadoutModel(torch.nn.Module):
 
         return F.relu(self.readout_network(readout_input))
 
-    def forward(self, data):
+    def forward(self, data: Data):
         """Run both of the model's convolutional layers with an activation layer inbetween."""
-        x = data.x
-        edge_index = data.edge_index
-        x = self.conv1(x, edge_index)
+        x = data.x  # node features
+        edge_index = data.edge_index  # edge indices
+        edge_features = data.edge_attr  # edge features
+        x = self.gnn_layer1(x=x, edge_index=edge_index, edge_features=edge_features)
         x = F.relu(x)
         x = F.dropout(x, training=self.training)
-        return self.conv2(x, edge_index)
+        return self.gnn_layer2(x=x, edge_index=edge_index, edge_features=edge_features)
 
 
 ReplayBufferItemType = TypeVar("ReplayBufferItemType")
@@ -208,24 +243,11 @@ class DeepQAgent:
         q_currents = torch.stack(
             [self._readout(state).squeeze() for state in current_states]
         )
+        
+        # this selects the actually chosen actions from the q-values for all actions
+        q_currents = torch.gather(q_currents, 1, actions.unsqueeze(dim=1)).squeeze()
 
-        # # one-hot encode the actions
-        # num_classes = q_currents.shape[1]
-        # actions_one_hot: torch.Tensor = F.one_hot(
-        #     actions, num_classes=num_classes
-        # ).type(torch.FloatTensor)
-
-        # # get the q-values of the actually selected actions
-        # q_currents = torch.matmul(q_currents, actions_one_hot.T)
-
-        # q_currents = q_currents.sum(dim=0)
-
-        q_currents = torch.stack(
-            [q_current[index] for q_current, index in zip(q_currents, actions)]
-        )
-        print(q_currents)
-
-        loss = F.huber_loss(q_target, q_currents)
+        loss = F.smooth_l1_loss(q_target, q_currents)
         loss.backward()
 
         self._optimiser.step()
@@ -320,7 +342,6 @@ def convert_to_torch_geometric_data(problem: AttackInferenceProblem) -> Data:
         [int(x) for (_, _, x) in problem.framework.graph.edges.data("actual_edge")]
     )
     data.edge_weight = data.edge_attr
-
     return data
 
 
@@ -380,12 +401,13 @@ def train_agent(
 
 
 if __name__ == "__main__":
-    if input("Would you like to load the most recent model snapshot? [y/n]")[0] == "y":
-        agent, model_path = DeepQAgent.load_snapshot()
-        print(f"Loaded agent at {model_path}")
+    # if input("Would you like to load the most recent model snapshot? [y/n]")[0] == "y":
+    #     agent, model_path = DeepQAgent.load_snapshot()
+    #     print(f"Loaded agent at {model_path}")
 
-    else:
-        agent = DeepQAgent()
+    # else:
+    agent = DeepQAgent()
     # agent.save_snapshot()
-    for info in train_agent(agent=agent, episodes=1):
-        print(info)
+    for info in train_agent(agent=agent, episodes=10):
+        if info["done"]:
+            print(info)

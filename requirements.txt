@@ -10,3 +10,4 @@ tqdm
 click
 keyboard
 flask
+gunicorn
