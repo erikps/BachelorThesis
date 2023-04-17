@@ -70,5 +70,19 @@ class AttackInferenceDataset(Dataset):
 
 
 if __name__ == "__main__":
-    create_datasets()
-    # create_datasets(graph_dir="./examples/", output_dir="./examples/attackinference")
+    # create_datasets()
+    create_datasets(graph_dir="./examples/", output_dir="./examples/attackinference")
+
+    # import os
+    # for i in range(4, 10):
+    #     os.mkdir(f"./data/train/train-{i}/attackinference")
+    #     create_datasets(graph_dir=f"./data/train/train-{i}/graphs", output_dir=f"./data/train/train-{i}/attackinference")
+
+    # import os
+
+    # for i in [10, 25, 50]:
+    #     os.mkdir(f"./data/test/test-{i}/attackinference")
+    #     create_datasets(
+    #         graph_dir=f"./data/test/test-{i}/graphs",
+    #         output_dir=f"./data/test/test-{i}/attackinference",
+    #     )

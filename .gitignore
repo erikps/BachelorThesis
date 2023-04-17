@@ -171,3 +171,5 @@ data/
 adapted/
 visualisations/
 models/*
+
+**/node_modules

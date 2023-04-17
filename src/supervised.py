@@ -22,7 +22,7 @@ class SupervisedModel(torch.nn.Module):
 
 
 def train_supervised():
-    dataset = AttackInferenceDataset()
+    dataset = AttackInferenceDataset.example_dataset()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     supervised = SupervisedModel()
@@ -30,17 +30,15 @@ def train_supervised():
 
     optimizer = torch.optim.Adam(supervised.parameters(), lr=0.01, weight_decay=5e-4)
 
-    sampler = iter(RandomSampler(dataset))
-
-    NUMBER_OF_GRAPHS = 5
-    NUMBER_OF_EPOCHS = 200
+    NUMBER_OF_GRAPHS = 1
+    NUMBER_OF_EPOCHS = 1000
 
     losses = []
 
     supervised.train()
     for _ in tqdm(range(NUMBER_OF_GRAPHS), desc="Problem Instance"):
         # prepare the current problem instance data
-        problem = dataset[next(sampler)]
+        problem = dataset[0]
         data = convert_to_torch_geometric_data(problem)
         data.to(device)
 
@@ -53,5 +51,10 @@ def train_supervised():
             losses.append(float(loss))
             loss.backward()
             optimizer.step()
-
     return supervised
+
+if __name__ == "__main__":
+    supervised = train_supervised()
+    print(supervised(AttackInferenceDataset.example_dataset()[0].to_torch_geometric()))
+
+

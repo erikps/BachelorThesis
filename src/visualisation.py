@@ -6,8 +6,6 @@ import matplotlib
 import random
 
 from src.core import AttackInferenceProblem
-from src.dataset import AttackInferenceDataset
-
 
 class Visualiser:
     def __init__(self, problem: AttackInferenceProblem, render_interval: float = 0.05):
@@ -60,3 +58,13 @@ class Visualiser:
             nx.draw(self._graph, **options)
             plt.pause(self._render_interval)
             plt.show(block=False)
+
+
+
+
+
+    
+    
+
+
+

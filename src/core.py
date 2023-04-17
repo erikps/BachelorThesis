@@ -7,6 +7,9 @@ import re
 from typing import Tuple
 
 import networkx
+import torch
+from torch_geometric.data import Data
+from torch_geometric.utils.convert import from_networkx
 
 
 class AttackInferenceProblem:
@@ -84,6 +87,25 @@ class AttackInferenceProblem:
     def categorise(self):
         """Geneate the predicted acceptibility degrees for the current predicted attacks."""
         self.categoriser(self.framework)
+
+    def to_torch_geometric(self) -> Data:
+        """Convert an attack inference problem into the pytorch-geometric representation needed for learning."""
+
+        # First need to specify which node and edge attributes to keep
+        node_attributes = ["weight", "ground_truth_degree", "predicted_degree"]
+        edge_attributes = ["predicted_edge", "has_flipped"]
+        data: Data = from_networkx(
+            self.framework.graph,
+            group_node_attrs=node_attributes,
+            group_edge_attrs=edge_attributes,
+        )
+
+        # data.y contains the information about which edges were in the ground-truth graph
+        data.y = torch.Tensor(
+            [int(x) for (_, _, x) in self.framework.graph.edges.data("actual_edge")]
+        )
+        data.edge_weight = data.edge_attr
+        return data
 
 
 class WeightedArgumentationFramework:
