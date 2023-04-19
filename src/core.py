@@ -14,10 +14,10 @@ from torch_geometric.utils.convert import from_networkx
 
 class AttackInferenceProblem:
     def __init__(
-        self,
-        framework: WeightedArgumentationFramework,
-        categoriser: Categoriser,
-        connect_fully=True,
+            self,
+            framework: WeightedArgumentationFramework,
+            categoriser: Categoriser,
+            connect_fully=True,
     ):
         self.framework = framework
         self.categoriser = categoriser
@@ -104,8 +104,18 @@ class AttackInferenceProblem:
         data.y = torch.Tensor(
             [int(x) for (_, _, x) in self.framework.graph.edges.data("actual_edge")]
         )
+
         data.edge_weight = data.edge_attr
         return data
+
+    def randomise(self) -> "AttackInferenceProblem":
+        """ Randomise the predicted edges. """
+        edges = self.framework.graph.edges()
+        values = [random.random() > 0.5 for _ in edges]
+        edges = [(a, b, {"predicted_edge": value, "has_flipped": value}) for (a, b), value in zip(edges, values)]
+        self.framework.graph.add_edges_from(edges)
+        self.categorise()
+        return self
 
 
 class WeightedArgumentationFramework:
@@ -187,9 +197,9 @@ class Categoriser(ABC):
 
     @abstractmethod
     def __call__(
-        self,
-        weighted_argumentation_framework: WeightedArgumentationFramework,
-        use_predicted_edges=True,
+            self,
+            weighted_argumentation_framework: WeightedArgumentationFramework,
+            use_predicted_edges=True,
     ):
         # TODO: this should probably only take in AttackInferenceProblems because only they have the predicted_edge / actual_edge distinction
         """Apply the categoriser to the weighted argumentation framework provided"""

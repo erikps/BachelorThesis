@@ -11,3 +11,5 @@ click
 keyboard
 flask
 gunicorn
+pfrl
+gym==0.22

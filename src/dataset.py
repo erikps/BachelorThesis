@@ -8,9 +8,9 @@ from src.core import AttackInferenceProblem, WeightedArgumentationFramework
 
 
 def create_datasets(
-    categoriser=HCategoriser(),
-    graph_dir: str = "./data/graphs/",
-    output_dir: str = "./data/attackinference/",
+        categoriser=HCategoriser(),
+        graph_dir: str = "./data/graphs/",
+        output_dir: str = "./data/attackinference/",
 ):
     """Take all graphs from the graph_dir stored in '.apx' format and
     transform them into attack inference problem instances by
@@ -39,7 +39,7 @@ def create_datasets(
 class AttackInferenceDataset(Dataset):
     """Dataset of attack inference problems. The problems first have to be created with create_datasets().
     preload:
-        If True, all graphs are immediately loaded into memory. Otherwise they
+        If True, all graphs are immediately loaded into memory. Otherwise, they
         are loaded on a on-demand basis when indexing into the dataset (__getitem__).
     """
 
@@ -57,7 +57,7 @@ class AttackInferenceDataset(Dataset):
     def __len__(self):
         return len(self._paths)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> AttackInferenceProblem:
         if self._preloaded_problems is None:
             return self._load_problem(self._paths[index])
 
@@ -65,7 +65,7 @@ class AttackInferenceDataset(Dataset):
             return deepcopy(self._preloaded_problems[index])
 
     @staticmethod
-    def example_dataset():
+    def example_dataset() -> "AttackInferenceDataset":
         return AttackInferenceDataset("./examples/attackinference")
 
 

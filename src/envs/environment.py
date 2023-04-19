@@ -1,9 +1,12 @@
+from copy import deepcopy
+from dataclasses import dataclass
 from itertools import cycle
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, Literal
 
 import gymnasium as gym
 from gymnasium.envs.registration import register
 from gymnasium import spaces
+import torch
 from torch.utils.data.sampler import RandomSampler
 from torch.utils.data import Dataset
 from torch_geometric.utils.convert import from_networkx
@@ -37,21 +40,48 @@ def convert_to_torch_geometric_data(problem: AttackInferenceProblem) -> Data:
 
 class AttackInferenceObservationSpace(gym.Space):
     def __init__(self, problem: AttackInferenceProblem):
+        super().__init__()
         self._problem = problem
 
-    def sample():
+    def sample(self, **kwargs):
         """Sample a random observation"""
+        problem_copy = deepcopy(self._problem)
+        problem_copy.randomise()
+        return problem_copy
+
+    def contains(self, instance) -> bool:
+        """ Check if the instance is the same. """
+        if not isinstance(instance, AttackInferenceProblem):
+            return False
+
+        combined = zip(self._problem.framework.graph.edges(data="actual_edge"),
+                       instance.framework.graph.edges(data="actual_edge"))
+        return all([a == b for a, b in combined])
+
+    @property
+    def shape(self):
+        return (self._problem.framework.graph.number_of_nodes(),)
+
+
+    @property
+    def is_np_flattenable(self):
+        return False
 
 
 class AttackInferenceEnvironment(gym.Env):
     metadata = {"render_modes": ["human"], "render_interval": 0.0005}
 
+    RenderModeType = Union[None, Literal["human"]]
+
     def __init__(
-        self,
-        dataset: Dataset[AttackInferenceProblem],
-        verifier=Verifier(),
-        render_mode=None,
+            self,
+            dataset: Dataset[AttackInferenceProblem],
+            verifier: Optional[Verifier] = None,
+            render_mode: RenderModeType = None,
     ):
+        if verifier is None:
+            verifier = Verifier()
+
         self.render_mode = render_mode
         self._dataset = dataset
 
@@ -82,14 +112,14 @@ class AttackInferenceEnvironment(gym.Env):
         n_edges = self._current_problem.framework.graph.number_of_edges()
 
         self.action_space = spaces.Discrete(n_edges)
-        self.observation_space = spaces.Discrete(1)  # placeholder
+        self.observation_space = AttackInferenceObservationSpace(self._current_problem)
 
     def reset(
-        self,
-        *,
-        new_instance=True,
-        seed: Optional[int] = None,
-        options: Optional[dict] = None
+            self,
+            *,
+            new_instance=True,
+            seed: Optional[int] = None,
+            options: Optional[dict] = None
     ) -> Tuple[AttackInferenceProblem, dict]:
         """Reset the environment. Will randomly sample a new graph from the dataset.
         The action space is updated to reflect the new number of possible edges,
@@ -118,7 +148,7 @@ class AttackInferenceEnvironment(gym.Env):
         terminated = self.verifier(self._current_problem)
         reward = 0 if terminated else -1
 
-        return self._current_problem, reward, terminated, False, {}
+        return self._current_problem, reward, terminated, {}
 
     def render(self):
         """The behaviour of this method relies on the render_mode.
@@ -136,6 +166,13 @@ class AttackInferenceEnvironment(gym.Env):
     def close(self):
         """This method is not needed for this environment."""
         pass
+
+
+class RllibAttackInferenceEnvironment(AttackInferenceEnvironment):
+
+    def __init__(self, env_config: dict):
+        AttackInferenceEnvironment.__init__(self, dataset=env_config["dataset"], verifier=env_config.get("verifier"),
+                                            render_mode=env_config.get("render_mode"))
 
 
 if __name__ == "__main__":

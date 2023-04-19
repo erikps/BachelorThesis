@@ -173,3 +173,6 @@ visualisations/
 models/*
 
 **/node_modules
+
+result/
+log/
