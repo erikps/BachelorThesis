@@ -243,6 +243,5 @@ class Categoriser(ABC):
             weighted_argumentation_framework: WeightedArgumentationFramework,
             use_predicted_edges=True,
     ):
-        # TODO: this should probably only take in AttackInferenceProblems because only they have the predicted_edge / actual_edge distinction
         """Apply the categoriser to the weighted argumentation framework provided"""
         pass

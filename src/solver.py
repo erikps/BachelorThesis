@@ -71,22 +71,3 @@ def solve(instance: AttackInferenceProblem):
         instance.set_edge_status(a, b, True)
 
     instance.categorise()
-
-
-if __name__ == "__main__":
-    problem = random_weighted_acyclic_graph_problem(4, 0.10)
-
-    verifier = Verifier()
-
-    print(problem.framework.graph.nodes(data=True))
-
-    print([data for _, _, data in problem.framework.graph.edges(data="actual_edge")])
-
-    print([data for _, _, data in problem.framework.graph.edges(data="predicted_edge")])
-    print(verifier(problem))
-    solve(problem)
-
-    print([data for _, _, data in problem.framework.graph.edges(data="predicted_edge")])
-    print(verifier(problem))
-
-
