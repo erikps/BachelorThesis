@@ -10,6 +10,9 @@ tqdm
 click
 keyboard
 flask
+Flask-WTF
 gunicorn
 pfrl
 gym==0.22
+dpss
+subsetsum

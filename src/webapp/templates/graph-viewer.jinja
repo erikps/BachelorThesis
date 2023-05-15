@@ -4,10 +4,56 @@
 
 {% block content %}
 
-<div id="d3"></div>
+{#
+BELOW CODE IS ADAPTED FROM https://d3-graph-gallery.com/graph/network_basic.html.
+#}
+
+
+<div>
+    <button onClick="runSolver()"
+        class="border rounded hover:text-white hover: border-blue-500 hover:bg-blue-500 px-2 cursor-pointer">Run
+        Solver</button>
+    <button onClick="runGNN()"
+        class="border rounded hover:text-white hover: border-blue-500 hover:bg-blue-500 px-2 cursor-pointer">Run
+        GNN</button>
+</div>
+
+<div class="border border-black rounded-sm mt-2" id="d3"></div>
+<div id="results"></div>
 
 <script src="https://d3js.org/d3.v4.js"></script>
 <script>
+
+    const params = new URLSearchParams(window.location.search);
+    const instance = params.get("instance");
+
+    const graph = params.get("graph");
+    let data = JSON.parse(graph);
+
+
+    function renderResults(results) {
+        // display the attacks in a somewhat nicer format
+        let returnString = "";
+        results = results[0];
+        for (let i = 0; i < results.length; i += 2) {
+            returnString += `(${results[i]}→${results[i + 1]}); `;
+        }
+        return returnString;
+    }
+
+    async function runSolver() {
+        const result = await fetch(`/api/solver?instance=${instance}`).then(x => x.json());
+        const resultsdiv = document.getElementById("results");
+        resultsdiv.innerHTML = "";
+        const results = document.createElement("p");
+        results.innerText = "Found Attacks: " + renderResults(result);
+        resultsdiv.appendChild(results);
+    }
+
+    async function runGNN() {
+        alert("The GNN-based model is unfortunately not implemented.");
+    }
+
 
     const width = 400;
     const height = 300;
@@ -19,63 +65,54 @@
         .attr("height", height)
         .append("g");
 
-    console.log(svg);
+    const scale = d3.scaleLinear()
+        .domain([0, 1])
+        .range(0, width);
+    // Initialize the links
 
-    d3.json("/api/graph", (data) => {
-        // Initialize the links
-        var link = svg
-            .selectAll("line")
-            .data(data.links)
-            .enter()
-            .append("line")
-            .style("stroke", "#aaa");
+    var link = svg
+        .selectAll("line")
+        .data(data.links.filter(e => e.is_predicted_edge))
+        .enter()
+        .append("line")
+        .style("stroke", "#aaa");
 
-        // Initialize the nodes
-        var node = svg
-            .selectAll("circle")
-            .data(data.nodes)
-            .enter()
-            .append("circle")
-            .attr("r", 20)
-            .style("fill", "#69b3a2");
-
-        // Let's list the force we wanna apply on the network
-        // var simulation = d3
-        // .forceSimulation(data.nodes) // Force algorithm is applied to data.nodes
-        //    .force(
-        //        "link",
-        //        d3
-        //            .forceLink() // This force provides links between nodes
-        //            .id(function (d) {
-        //                return d.id;
-        //            }) // This provide  the id of a node
-        //            .links(data.links) // and this the list of links
-        //    )
-        //    .force("charge", d3.forceManyBody().strength(-400)) // This adds repulsion between nodes. Play with the -400 for the repulsion strength
-        //    .force("center", d3.forceCenter(width / 2, height / 2)) // This force attracts nodes to the center of the svg area
-        //    .on("end", ticked);
-
-        let simulation = d3.forceSimulation(data.nodes)
-            .force("charge", d3.forceManyBody().strength(-100))
-            .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("link", d3.forceLink().links(data.links))
-
-        // This function is run at each iteration of the force algorithm, updating the nodes position.
-        function ticked() {
-            node
-                .attr("cx", d => d.x)
-                .attr("cy", d => d.y);
-
-            link
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
+    // Initialize the nodes
+    const node = svg
+        .selectAll("circle")
+        .data(data.nodes)
+        .enter()
+        .append("circle")
+        .attr("r", 20)
+        .style("fill", "#69b3a2");
 
 
-        }
-    });
+    // Let's list the force we wanna apply on the network
+    var simulation = d3.forceSimulation(data.nodes)                 // Force algorithm is applied to data.nodes
+        .force("link", d3.forceLink()                               // This force provides links between nodes
+            .id(function (d) { return d.id; })                     // This provide  the id of a node
+            .links(data.links)                                    // and this the list of links
+        )
+        .force("charge", d3.forceManyBody().strength(-400))         // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("center", d3.forceCenter(width / 2, height / 2))     // This force attracts nodes to the center of the svg area
+        .on("end", ticked);
+
+    // This function is run at each iteration of the force algorithm, updating the nodes position.
+    function ticked() {
+        node
+            .attr("cx", d => (d.x))
+            .attr("cy", d => (d.y));
+
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+    }
+
 </script>
+
+{# END OF ADAPTED SEGMENT #}
 
 
 

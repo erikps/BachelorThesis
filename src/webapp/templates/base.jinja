@@ -10,11 +10,21 @@
 
 <body>
   <div class="m-2 max-w-xl">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for message in messages %} 
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
     <div class="space-x-2 pb-1 inline-flex flex-row border-b border-black min-w-0">
       <a href="/">Home</a><div>|</div>
-      <a href="/about">About</a><div>|</div>
-      <a href="/graph-viewer">Graph Viewer</a> <div>|</div>
-      <a href="/model">Model</a>
+      <a href="/create-graph">Create Graph</a>
+      {# <a href="/about">About</a><div>|</div>
+      <a href="/graph-viewer">Graph Viewer</a> <div>|</div> #}
+      {# <a href="/model">Model</a> #}
     </div>
     <h1> {{ self.title() }} </h1>
     {% block content %} {% endblock %}

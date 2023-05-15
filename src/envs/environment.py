@@ -146,7 +146,7 @@ class AttackInferenceEnvironment(gym.Env):
 
         self._current_problem.categorise()  # need to update the predicted degrees
         terminated = self.verifier(self._current_problem)
-        reward = 0 if terminated else -1
+        reward = 1 if terminated else -1
 
         return self._current_problem, reward, terminated, {}
 

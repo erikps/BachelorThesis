@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
+from fractions import Fraction
 import pickle
 import random
+from numbers import Rational
 import re
 from typing import Tuple
 
@@ -18,60 +21,82 @@ class AttackInferenceProblem:
             framework: WeightedArgumentationFramework,
             categoriser: Categoriser,
             connect_fully=True,
+            run_categoriser=True
     ):
         self.framework = framework
         self.categoriser = categoriser
+        if run_categoriser:
+            nodes = self.framework.graph.nodes()
+            # Make the graph fully connected and add a flag for the actual and
+            #   predicted existance of the edge
+            for a in nodes:
+                for b in nodes:
+                    is_actual_edge = self.framework.graph.has_edge(
+                        a, b
+                    )  # does the edge actually exist?
 
-        nodes = self.framework.graph.nodes()
+                    if connect_fully or is_actual_edge:
+                        self.framework.graph.add_edge(
+                            a,
+                            b,
+                            actual_edge=is_actual_edge,
+                            predicted_edge=False,
+                            has_flipped=False,
+                        )
 
-        # Make the graph fully connected and add a flag for the actual and
-        #   predicted existance of the edge
-        for a in nodes:
-            for b in nodes:
-                is_actual_edge = self.framework.graph.has_edge(
-                    a, b
-                )  # does the edge actually exist?
+            self.categoriser(
+                self.framework, use_predicted_edges=False
+            )  # This will create the ground-truth degree node attributes
 
-                if connect_fully or is_actual_edge:
-                    self.framework.graph.add_edge(
-                        a,
-                        b,
-                        actual_edge=is_actual_edge,
-                        predicted_edge=False,
-                        has_flipped=False,
-                    )
+            for node, data in self.framework.graph.nodes(data=True):
+                self.framework.graph.add_node(
+                    node, ground_truth_degree=data["predicted_degree"]
+                )
 
-        self.categoriser(
-            self.framework, use_predicted_edges=False
-        )  # This will create the ground-truth degree node attributes
+            self.categorise()
 
+    def to_fractional(self, max_denominator=100000):
+        """ Turn the node features from floats into fractionals. """
         for node, data in self.framework.graph.nodes(data=True):
-            self.framework.graph.add_node(
-                node, ground_truth_degree=data["predicted_degree"]
-            )
+            for key in data.keys():
+                data[key] = Fraction(
+                    data[key]).limit_denominator(max_denominator)
+                self.framework.graph.add_node(node, **data)
 
-        self.categorise()
+        for a, b, data in self.framework.graph.edges(data=True):
+            for key in data.keys():
+                data[key] = Fraction(
+                    data[key]).limit_denominator(max_denominator)
+                self.framework.graph.add_edge(a, b, **data)
+        return self
 
     def reset_edges(self):
         """Revert all flip_edge calls in order to reset the problem to its original state."""
         for a, b in self.framework.graph.edges():
-            self.framework.graph.add_edge(a, b, predicted_edge=False, has_flipped=False)
+            self.framework.graph.add_edge(
+                a, b, predicted_edge=False, has_flipped=False)
 
         self.categorise()
 
     def write_to_disk(self, filepath: str):
+        """ Serialise the attack inference problem into a file on disk at the provided filepath. """
         with open(filepath, "wb") as file:
             pickle.dump(self, file)
 
     @staticmethod
     def read_from_disk(filepath: str) -> "AttackInferenceProblem":
-        """Read the problem from disk at the filepath and return it."""
+        """ Read the problem from disk at the filepath and return it. """
         with open(filepath, "rb") as file:
             return pickle.load(file)
 
     def get_edge_from_index(self, index: int) -> Tuple[str, str]:
         """Convert the edge from (node, node) format to index format."""
         return list(self.framework.graph.edges)[index]
+
+    def set_edge_status(self, from_argument, to_argument, status: bool):
+        self.framework.graph.add_edge(
+            from_argument, to_argument, predicted_edge=status, has_flipped=True
+        )
 
     def flip_edge(self, index_of_edge: int):
         """Change the "predicted_edge" edge attribute of the edge at index_of_edge
@@ -87,6 +112,19 @@ class AttackInferenceProblem:
     def categorise(self):
         """Geneate the predicted acceptibility degrees for the current predicted attacks."""
         self.categoriser(self.framework)
+
+    def as_true_graph(self):
+        """ Return the argument graph with all "fake" edges removed. """
+        copy = deepcopy(self.framework.graph)
+        edges_to_remove = []
+        for a, b, data in copy.edges(data=True):
+            if not data["actual_edge"]:
+                edges_to_remove.append((a, b))
+
+        print(edges_to_remove)
+
+        copy.remove_edges_from(edges_to_remove)
+        return copy
 
     def to_torch_geometric(self) -> Data:
         """Convert an attack inference problem into the pytorch-geometric representation needed for learning."""
@@ -112,7 +150,8 @@ class AttackInferenceProblem:
         """ Randomise the predicted edges. """
         edges = self.framework.graph.edges()
         values = [random.random() > 0.5 for _ in edges]
-        edges = [(a, b, {"predicted_edge": value, "has_flipped": value}) for (a, b), value in zip(edges, values)]
+        edges = [(a, b, {"predicted_edge": value, "has_flipped": value})
+                 for (a, b), value in zip(edges, values)]
         self.framework.graph.add_edges_from(edges)
         self.categorise()
         return self
@@ -150,7 +189,8 @@ class WeightedArgumentationFramework:
         arguments = sorted(re.findall(ARGUMENT_REGEX, string))
 
         # assign to each symbol an index used later for the ArgumentationFramework's internal representation of graphs
-        label_mapping = {argument: index for index, argument in enumerate(arguments)}
+        label_mapping = {argument: index for index,
+                         argument in enumerate(arguments)}
 
         # attacks are (symbol, symbol) tuples
         attacks = re.findall(ATTACK_REGEX, string)
@@ -171,9 +211,7 @@ class WeightedArgumentationFramework:
             weighted_argumentation_framework.graph.add_node(
                 argument, weight=weight, predicted_degree=weight
             )
-
         weighted_argumentation_framework.graph.add_edges_from(attacks)
-
         return weighted_argumentation_framework
 
     def randomise_weights(self, randomiser=random.random):
@@ -187,6 +225,10 @@ class WeightedArgumentationFramework:
             weight = randomiser()
             self.graph.add_node(node, weight=weight, predicted_degree=weight)
         return self
+
+
+def random_fraction():
+    return Fraction(random.random())
 
 
 class Categoriser(ABC):

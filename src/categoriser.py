@@ -87,6 +87,7 @@ class HCategoriser(Categoriser):
                     node, predicted_degree=data["new_predicted_degree"]
                 )
 
+
         # clean up the new_acceptibility attribute on the nodes
         for _, data in framework.graph.nodes(data=True):
             del data["new_predicted_degree"]
@@ -95,3 +96,6 @@ class HCategoriser(Categoriser):
 class CardBasedCategoriser(Categoriser):
     # TODO: implement
     pass
+
+    def __call__():
+        return NotImplementedError

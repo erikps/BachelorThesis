@@ -4,5 +4,22 @@
 
 {% block content %}
 
+<p>
+    In the attack inference problem for weighted argumentation framework
+    attacks have to be found for a given weighted argumentation framework
+    without attacks. Only the nodes, their weights and their desired final
+    acceptibility degrees are known at the beginning.
+</p>
+
+<p>
+    An instance of the attack inference problem can be <a href="/create-graph">submitted</a>. Then, a symbolic solver
+    and, hopfully in the future, a graph neural network based model can be run on it.
+</p>
+
+<p>The language used to describe the graphs can is based on the <a
+        href="https://www.dbai.tuwien.ac.at/proj/argumentation/systempage/">ASPARTIX</a> file format with the change
+    that "wgt(a, 0.1)."
+    can be used to assign the weight of 0.1 to argument a and "dgr(a, 0.1)." can be used to assign the degree 0.1 to a.
+</p>
 
 {% endblock %}
